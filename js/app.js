@@ -73,6 +73,7 @@ const initialKeys = getStorageKeys(initialSession);
 
 let state = {
   session: initialSession,
+  guestEntered: false,
   authMode: 'login',
   lang: loadJSON(initialKeys.lang, 'ja'),
   activeTab: 'inventory',
@@ -136,11 +137,25 @@ function applyLanguage() {
   });
 }
 
+// 認証ゲート画面とメイン画面の表示切替
 function renderAuthUI() {
+  const gateScreen = document.getElementById('authGateScreen');
+  const mainShell = document.getElementById('mainAppShell');
   const badge = document.getElementById('authStatusBadge');
   const loginBtn = document.getElementById('openAuthModalBtn');
   const logoutBtn = document.getElementById('logoutBtn');
   const inviteCodeEl = document.getElementById('familyInviteCode');
+
+  const isAuthenticatedOrGuest = Boolean(state.session) || state.guestEntered;
+
+  if (!isAuthenticatedOrGuest) {
+    gateScreen.classList.remove('hidden');
+    mainShell.classList.add('hidden');
+    return;
+  }
+
+  gateScreen.classList.add('hidden');
+  mainShell.classList.remove('hidden');
 
   if (state.session) {
     badge.textContent = `👤 ${state.session.displayName} (${state.session.familyGroupId})`;
@@ -150,12 +165,12 @@ function renderAuthUI() {
   } else {
     badge.textContent = 'ゲスト利用中';
     loginBtn.classList.remove('hidden');
-    logoutBtn.classList.add('hidden');
+    logoutBtn.classList.remove('hidden');
+    logoutBtn.textContent = 'ログイン画面へ';
     inviteCodeEl.textContent = 'FAM-KOBE-2026';
   }
 }
 
-// 材料追加（同名食材があれば数量加算、なければ新規追加し、メニュー提案へ即反映）
 function addIngredient({ name, category, quantity, unit, expiryDate, dietaryTags }) {
   const normalizedName = normalizeIngredientName(name);
   if (!normalizedName) return;
@@ -505,16 +520,15 @@ function render() {
   renderNutrition();
 }
 
-function setAuthMode(mode) {
+function setGateAuthMode(mode) {
   state.authMode = mode;
   const isSignup = mode === 'signup';
-  document.getElementById('authModeLoginBtn').classList.toggle('active', !isSignup);
-  document.getElementById('authModeSignupBtn').classList.toggle('active', isSignup);
-  document.getElementById('authModalTitle').textContent = isSignup ? '新規アカウント登録' : 'アカウントにログイン';
-  document.getElementById('authSubmitBtn').textContent = isSignup ? '登録して始める' : 'ログインする';
-  document.getElementById('authNameLabel').classList.toggle('hidden', !isSignup);
-  document.getElementById('authFamilyLabel').classList.toggle('hidden', !isSignup);
-  document.getElementById('authErrorBox').classList.add('hidden');
+  document.getElementById('gateModeLoginBtn').classList.toggle('active', !isSignup);
+  document.getElementById('gateModeSignupBtn').classList.toggle('active', isSignup);
+  document.getElementById('gateSubmitBtn').textContent = isSignup ? '新規登録して始める' : 'ログインして始める';
+  document.getElementById('gateNameLabel').classList.toggle('hidden', !isSignup);
+  document.getElementById('gateFamilyLabel').classList.toggle('hidden', !isSignup);
+  document.getElementById('gateErrorBox').classList.add('hidden');
 }
 
 function bindEvents() {
@@ -526,28 +540,23 @@ function bindEvents() {
     });
   });
 
-  // ログイン・新規登録モーダル制御
-  document.getElementById('openAuthModalBtn').addEventListener('click', () => {
-    setAuthMode('login');
-    document.getElementById('authModal').classList.remove('hidden');
-  });
+  // 初期ログイン・新規登録ゲート画面のイベント
+  document.getElementById('gateModeLoginBtn').addEventListener('click', () => setGateAuthMode('login'));
+  document.getElementById('gateModeSignupBtn').addEventListener('click', () => setGateAuthMode('signup'));
 
-  document.getElementById('authModeLoginBtn').addEventListener('click', () => setAuthMode('login'));
-  document.getElementById('authModeSignupBtn').addEventListener('click', () => setAuthMode('signup'));
-
-  document.getElementById('authForm').addEventListener('submit', async e => {
+  document.getElementById('gateAuthForm').addEventListener('submit', async e => {
     e.preventDefault();
-    const email = document.getElementById('authEmail').value.trim();
-    const password = document.getElementById('authPassword').value;
-    const errBox = document.getElementById('authErrorBox');
+    const email = document.getElementById('gateEmail').value.trim();
+    const password = document.getElementById('gatePassword').value;
+    const errBox = document.getElementById('gateErrorBox');
     errBox.classList.add('hidden');
 
     const result = state.authMode === 'signup'
       ? await signUpWithEmail({
           email,
           password,
-          displayName: document.getElementById('authDisplayName').value,
-          familyGroupId: document.getElementById('authFamilyCode').value
+          displayName: document.getElementById('gateDisplayName').value,
+          familyGroupId: document.getElementById('gateFamilyCode').value
         })
       : await signInWithEmail(email, password);
 
@@ -558,22 +567,37 @@ function bindEvents() {
     }
 
     state.session = result.session;
+    state.guestEntered = false;
     reloadScopedData();
-    document.getElementById('authModal').classList.add('hidden');
     e.target.reset();
     render();
     showToast(`${state.session.displayName} としてログインしました`);
   });
 
+  document.getElementById('continueAsGuestBtn').addEventListener('click', () => {
+    state.guestEntered = true;
+    reloadScopedData();
+    render();
+    showToast('ゲストモードで開始しました');
+  });
+
+  document.getElementById('openAuthModalBtn').addEventListener('click', () => {
+    state.guestEntered = false;
+    setGateAuthMode('login');
+    render();
+  });
+
   document.getElementById('logoutBtn').addEventListener('click', () => {
     signOutSession();
     state.session = null;
+    state.guestEntered = false;
     reloadScopedData();
+    setGateAuthMode('login');
     render();
-    showToast('ログアウトしました（ゲストモードに切替）');
+    showToast('ログアウトしました');
   });
 
-  // 食材入力時の自動補完（カテゴリ・単位・期限・タグを自動セット）
+  // 食材入力時の自動補完
   document.getElementById('newItemName').addEventListener('input', e => {
     const norm = normalizeIngredientName(e.target.value);
     const found = INGREDIENT_CATALOG.find(c => c.name === norm);

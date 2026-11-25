@@ -49,8 +49,30 @@
 }
 
 .auth-gate .auth-tabs {
+  display: flex;
   justify-content: center;
+  gap: 8px;
   margin-bottom: 16px;
+}
+
+.auth-gate .form-stack label:not(.check-chip) {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.auth-gate .form-stack input:not([type="checkbox"]),
+.auth-gate .form-stack select {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 9px 11px;
+  font-size: 0.88rem;
+  background: #ffffff;
+  color: #0f172a;
 }
 
 .btn-lg {

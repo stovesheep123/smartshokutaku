@@ -1,7 +1,7 @@
 // Supabase Auth & REST 連携モジュール
 export const SUPABASE_CONFIG = {
   url: 'https://tddgcmpamsqosuvgkcui.supabase.co',
-  anonKey: 'YOUR_FULL_PUBLISHABLE_KEY' // Publishable key の全文をここに貼り付け
+  anonKey: 'sb_publishable_7USZkbv63gU2v6paPSzNEw_wKCB6_34' // Publishable key の全文をここに貼り付け
 };
 
 const SESSION_KEY = 'shokutaku_supabase_session';
